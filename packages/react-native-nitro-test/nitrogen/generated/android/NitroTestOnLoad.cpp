@@ -26,6 +26,7 @@
 #include "JFunc_std__shared_ptr_Promise_std__string__.hpp"
 #include "JFunc_void_std__string.hpp"
 #include "JFunc_double.hpp"
+#include "JHybridTestObjectSwiftKotlin2Spec.hpp"
 #include "JHybridBaseSpec.hpp"
 #include "JHybridChildSpec.hpp"
 #include "JHybridTestViewSpec.hpp"
@@ -53,6 +54,7 @@ int initialize(JavaVM* vm) {
     margelo::nitro::test::JFunc_std__shared_ptr_Promise_std__string___cxx::registerNatives();
     margelo::nitro::test::JFunc_void_std__string_cxx::registerNatives();
     margelo::nitro::test::JFunc_double_cxx::registerNatives();
+    margelo::nitro::test::JHybridTestObjectSwiftKotlin2Spec::registerNatives();
     margelo::nitro::test::JHybridBaseSpec::registerNatives();
     margelo::nitro::test::JHybridChildSpec::registerNatives();
     margelo::nitro::test::JHybridTestViewSpec::registerNatives();
