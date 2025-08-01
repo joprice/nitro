@@ -5,459 +5,476 @@ import {
   type Car,
   type Person,
   type Powertrain,
-} from 'react-native-nitro-image'
-import type { State } from './Testers'
-import { it } from './Testers'
-import { stringify } from './utils'
+} from "react-native-nitro-image";
+import type { State } from "./Testers";
+import { it } from "./Testers";
+import { stringify } from "./utils";
 import {
   getHybridObjectConstructor,
   NitroModules,
-} from 'react-native-nitro-modules'
-import { InteractionManager } from 'react-native'
+} from "react-native-nitro-modules";
+import { InteractionManager } from "react-native";
 
 type TestResult =
   | {
-      status: 'successful'
-      result: string
+      status: "successful";
+      result: string;
     }
   | {
-      status: 'failed'
-      message: string
-    }
+      status: "failed";
+      message: string;
+    };
 
 export interface TestRunner {
-  name: string
-  run: () => Promise<TestResult>
+  name: string;
+  run: () => Promise<TestResult>;
 }
 
 const TEST_PERSON: Person = {
   age: 24,
-  name: 'Marc',
-}
+  name: "Marc",
+};
 const TEST_CAR: Car = {
   year: 2018,
-  make: 'Lamborghini',
-  model: 'Huracan Performante',
+  make: "Lamborghini",
+  model: "Huracan Performante",
   power: 640,
-  powertrain: 'gas',
+  powertrain: "gas",
   driver: undefined, // <-- value needs to be explicitly set, to equal it with native's std::optional<..>
   isFast: true,
-}
+};
 const TEST_MAP: Record<string, number | boolean> = {
   someKey: 55,
   some_other_key: 123,
   a_bool: true,
   another_bool: false,
-}
+};
 const TEST_MAP_2: Record<string, string> = {
-  'someKey': 'someValue',
-  'anotherKey': 'another-value',
-  'third-key': 'thirdValue',
-}
+  someKey: "someValue",
+  anotherKey: "another-value",
+  "third-key": "thirdValue",
+};
 
-const BASE_DATE = new Date()
+const BASE_DATE = new Date();
 const DATE_PLUS_1H = (() => {
-  const current = BASE_DATE.getTime()
-  const oneHourInMilliseconds = 1000 * 60 * 60
-  return new Date(current + oneHourInMilliseconds)
-})()
+  const current = BASE_DATE.getTime();
+  const oneHourInMilliseconds = 1000 * 60 * 60;
+  return new Date(current + oneHourInMilliseconds);
+})();
 
 function createTest<T>(
   name: string,
-  run: () => State<T> | Promise<State<T>>
+  run: () => State<T> | Promise<State<T>>,
 ): TestRunner {
   return {
     name: name,
     run: async (): Promise<TestResult> => {
       try {
-        console.log(`⏳ Test "${name}" started...`)
-        const state = await run()
-        console.log(`✅ Test "${name}" passed!`)
+        console.log(`⏳ Test "${name}" started...`);
+        const state = await run();
+        console.log(`✅ Test "${name}" passed!`);
         return {
-          status: 'successful',
-          result: stringify(state.result ?? state.errorThrown ?? '(void)'),
-        }
+          status: "successful",
+          result: stringify(state.result ?? state.errorThrown ?? "(void)"),
+        };
       } catch (e) {
-        console.log(`❌ Test "${name}" failed! ${e}`)
+        console.log(`❌ Test "${name}" failed! ${e}`);
         return {
-          status: 'failed',
+          status: "failed",
           message: stringify(e),
-        }
+        };
       }
     },
-  }
+  };
 }
 
 function timeoutedPromise<T>(
-  run: (complete: (value: T) => void) => void | Promise<void>
+  run: (complete: (value: T) => void) => void | Promise<void>,
 ): Promise<T> {
   return new Promise(async (resolve, reject) => {
-    let didResolve = false
+    let didResolve = false;
     InteractionManager.runAfterInteractions(() => {
       requestAnimationFrame(() => {
         setImmediate(() => {
           setTimeout(() => {
-            if (!didResolve) reject(new Error(`Timeouted!`))
-          }, 1500)
-        })
-      })
-    })
+            if (!didResolve) reject(new Error(`Timeouted!`));
+          }, 1500);
+        });
+      });
+    });
     try {
       await run((value) => {
         if (didResolve) {
-          throw new Error(`Promise was already rejected!`)
+          throw new Error(`Promise was already rejected!`);
         }
-        didResolve = true
-        resolve(value)
-      })
+        didResolve = true;
+        resolve(value);
+      });
     } catch (e) {
-      didResolve = true
-      reject(e)
+      didResolve = true;
+      reject(e);
     }
-  })
+  });
 }
 
 export function getTests(
-  testObject: TestObjectCpp | TestObjectSwiftKotlin
+  testObject: TestObjectCpp | TestObjectSwiftKotlin,
 ): TestRunner[] {
   return [
     // Basic prototype tests
-    createTest('HybridObject.prototype is valid', () =>
+    createTest("promiseThrows() throws", async () =>
+      (await it(() => testObject.promiseThrows())).didThrow(
+        "Error: Promise throws :)",
+      ),
+    ),
+    createTest("funcThatThrows() throws", () =>
+      it(() => testObject.funcThatThrows()).didThrow(
+        `Error: ${testObject.name}.funcThatThrows(...): This function will only work after sacrificing seven lambs!`,
+      ),
+    ),
+    createTest("funcThatThrowsBeforePromise() throws", async () =>
+      (
+        await it(async () => await testObject.funcThatThrowsBeforePromise())
+      ).didThrow(
+        `Error: ${testObject.name}.funcThatThrowsBeforePromise(...): This function will only work after sacrificing eight lambs!`,
+      ),
+    ),
+    createTest("HybridObject.prototype is valid", () =>
       it(() => Object.getPrototypeOf(testObject))
         .didNotThrow()
-        .didReturn('object')
-        .toContain('simpleFunc')
+        .didReturn("object")
+        .toContain("simpleFunc"),
     ),
-    createTest('HybridObject.prototype.prototype is valid', () =>
+    createTest("HybridObject.prototype.prototype is valid", () =>
       it(() => Object.getPrototypeOf(Object.getPrototypeOf(testObject)))
         .didNotThrow()
-        .didReturn('object')
-        .toContain('toString')
-        .toContain('equals')
+        .didReturn("object")
+        .toContain("toString")
+        .toContain("equals"),
     ),
-    createTest('Two HybridObjects are not equal (a == b)', () =>
+    createTest("Two HybridObjects are not equal (a == b)", () =>
       it(
         () =>
           // eslint-disable-next-line no-self-compare
-          testObject.newTestObject() === testObject.newTestObject()
+          testObject.newTestObject() === testObject.newTestObject(),
       )
         .didNotThrow()
-        .equals(false)
+        .equals(false),
     ),
-    createTest('Two HybridObjects are not equal (a.equals(b))', () =>
+    createTest("Two HybridObjects are not equal (a.equals(b))", () =>
       it(() => testObject.newTestObject().equals(testObject.newTestObject()))
         .didNotThrow()
-        .equals(false)
+        .equals(false),
     ),
     createTest("Two HybridObjects's prototypes are equal", () =>
       it(() => {
-        const objA = testObject.newTestObject()
-        const objB = testObject.newTestObject()
-        return Object.getPrototypeOf(objA) === Object.getPrototypeOf(objB)
+        const objA = testObject.newTestObject();
+        const objB = testObject.newTestObject();
+        return Object.getPrototypeOf(objA) === Object.getPrototypeOf(objB);
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
 
     // Test Primitives (getters & setters)
-    createTest('set numberValue to 13', () =>
-      it(() => (testObject.numberValue = 13)).didNotThrow()
+    createTest("set numberValue to 13", () =>
+      it(() => (testObject.numberValue = 13)).didNotThrow(),
     ),
-    createTest('get numberValue (== 13)', () =>
+    createTest("get numberValue (== 13)", () =>
       it(() => {
-        testObject.numberValue = 14
-        return testObject.numberValue
+        testObject.numberValue = 14;
+        return testObject.numberValue;
       })
         .didNotThrow()
-        .equals(14)
+        .equals(14),
     ),
-    createTest('set boolValue to true', () =>
-      it(() => (testObject.boolValue = true)).didNotThrow()
+    createTest("set boolValue to true", () =>
+      it(() => (testObject.boolValue = true)).didNotThrow(),
     ),
-    createTest('get boolValue (== true)', () =>
+    createTest("get boolValue (== true)", () =>
       it(() => {
-        testObject.boolValue = true
-        return testObject.boolValue
+        testObject.boolValue = true;
+        return testObject.boolValue;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
     createTest("set stringValue to 'hello!'", () =>
-      it(() => (testObject.stringValue = 'hello!')).didNotThrow()
+      it(() => (testObject.stringValue = "hello!")).didNotThrow(),
     ),
     createTest("get stringValue (== 'hello!')", () =>
       it(() => {
-        testObject.stringValue = 'hello!'
-        return testObject.stringValue
+        testObject.stringValue = "hello!";
+        return testObject.stringValue;
       })
         .didNotThrow()
-        .equals('hello!')
+        .equals("hello!"),
     ),
-    createTest('set bigintValue to 7362572367826385n', () =>
-      it(() => (testObject.bigintValue = 7362572367826385n)).didNotThrow()
+    createTest("set bigintValue to 7362572367826385n", () =>
+      it(() => (testObject.bigintValue = 7362572367826385n)).didNotThrow(),
     ),
-    createTest('get bigintValue (== 7362572367826385n)', () =>
+    createTest("get bigintValue (== 7362572367826385n)", () =>
       it(() => {
-        testObject.bigintValue = 7362572367826385n
-        return testObject.bigintValue
+        testObject.bigintValue = 7362572367826385n;
+        return testObject.bigintValue;
       })
         .didNotThrow()
-        .equals(7362572367826385n)
+        .equals(7362572367826385n),
     ),
-    createTest('set stringOrUndefined to string, then undefined', () =>
+    createTest("set stringOrUndefined to string, then undefined", () =>
       it(() => {
-        testObject.stringOrUndefined = 'hello'
-        testObject.stringOrUndefined = undefined
-      }).didNotThrow()
+        testObject.stringOrUndefined = "hello";
+        testObject.stringOrUndefined = undefined;
+      }).didNotThrow(),
     ),
-    createTest('get stringOrUndefined (== undefined)', () =>
+    createTest("get stringOrUndefined (== undefined)", () =>
       it(() => {
-        testObject.stringOrUndefined = undefined
-        return testObject.stringOrUndefined
+        testObject.stringOrUndefined = undefined;
+        return testObject.stringOrUndefined;
       })
         .didNotThrow()
-        .equals(undefined)
+        .equals(undefined),
     ),
-    createTest('set stringOrNull to string, then undefined', () =>
+    createTest("set stringOrNull to string, then undefined", () =>
       it(() => {
-        testObject.stringOrNull = 'hello'
-        testObject.stringOrNull = null
-      }).didNotThrow()
+        testObject.stringOrNull = "hello";
+        testObject.stringOrNull = null;
+      }).didNotThrow(),
     ),
-    createTest('get stringOrNull (== undefined)', () =>
+    createTest("get stringOrNull (== undefined)", () =>
       it(() => {
-        testObject.stringOrNull = null
-        return testObject.stringOrNull
+        testObject.stringOrNull = null;
+        return testObject.stringOrNull;
       })
         .didNotThrow()
-        .equals(null)
+        .equals(null),
     ),
-    createTest('set optionalString to string, then undefined', () =>
+    createTest("set optionalString to string, then undefined", () =>
       it(() => {
-        testObject.optionalString = 'hello'
-        testObject.optionalString = undefined
-      }).didNotThrow()
+        testObject.optionalString = "hello";
+        testObject.optionalString = undefined;
+      }).didNotThrow(),
     ),
-    createTest('get optionalString (== undefined)', () =>
+    createTest("get optionalString (== undefined)", () =>
       it(() => {
-        testObject.optionalString = undefined
-        return testObject.optionalString
+        testObject.optionalString = undefined;
+        return testObject.optionalString;
       })
         .didNotThrow()
-        .equals(undefined)
+        .equals(undefined),
     ),
-    createTest('get optionalArray (== undefined)', () =>
+    createTest("get optionalArray (== undefined)", () =>
       it(() => {
-        testObject.optionalArray = undefined
-        return testObject.optionalArray
+        testObject.optionalArray = undefined;
+        return testObject.optionalArray;
       })
         .didNotThrow()
-        .equals(undefined)
+        .equals(undefined),
     ),
     createTest('get optionalArray (== ["hello", "world"])', () =>
       it(() => {
-        testObject.optionalArray = ['hello', 'world']
-        return testObject.optionalArray
+        testObject.optionalArray = ["hello", "world"];
+        return testObject.optionalArray;
       })
         .didNotThrow()
-        .equals(['hello', 'world'])
+        .equals(["hello", "world"]),
     ),
-    createTest('get optionalHybrid (== undefined)', () =>
+    createTest("get optionalHybrid (== undefined)", () =>
       it(() => {
-        testObject.optionalHybrid = undefined
-        return testObject.optionalHybrid
+        testObject.optionalHybrid = undefined;
+        return testObject.optionalHybrid;
       })
         .didNotThrow()
-        .didReturn('undefined')
+        .didReturn("undefined"),
     ),
-    createTest('get optionalHybrid (== self)', () =>
+    createTest("get optionalHybrid (== self)", () =>
       it(() => {
-        testObject.optionalHybrid = testObject
-        return testObject.optionalHybrid
+        testObject.optionalHybrid = testObject;
+        return testObject.optionalHybrid;
       })
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object")
         // @ts-expect-error
         .equals(testObject.optionalHybrid)
         .cleanup(() => {
-          testObject.optionalHybrid = undefined
-        })
+          testObject.optionalHybrid = undefined;
+        }),
     ),
-    createTest('get optionalEnum (== undefined)', () =>
+    createTest("get optionalEnum (== undefined)", () =>
       it(() => {
-        testObject.optionalEnum = undefined
-        return testObject.optionalEnum
+        testObject.optionalEnum = undefined;
+        return testObject.optionalEnum;
       })
         .didNotThrow()
-        .didReturn('undefined')
+        .didReturn("undefined"),
     ),
-    createTest('get optionalEnum (== self)', () =>
+    createTest("get optionalEnum (== self)", () =>
       it(() => {
-        testObject.optionalEnum = 'gas'
-        return testObject.optionalEnum
+        testObject.optionalEnum = "gas";
+        return testObject.optionalEnum;
       })
         .didNotThrow()
-        .didReturn('string')
-        .equals('gas')
+        .didReturn("string")
+        .equals("gas"),
     ),
-    createTest('get optionalOldEnum (== undefined)', () =>
+    createTest("get optionalOldEnum (== undefined)", () =>
       it(() => {
-        testObject.optionalOldEnum = undefined
-        return testObject.optionalOldEnum
+        testObject.optionalOldEnum = undefined;
+        return testObject.optionalOldEnum;
       })
         .didNotThrow()
-        .didReturn('undefined')
+        .didReturn("undefined"),
     ),
-    createTest('get optionalOldEnum (== self)', () =>
+    createTest("get optionalOldEnum (== self)", () =>
       it(() => {
-        testObject.optionalOldEnum = OldEnum.SECOND
-        return testObject.optionalOldEnum
+        testObject.optionalOldEnum = OldEnum.SECOND;
+        return testObject.optionalOldEnum;
       })
         .didNotThrow()
         .didReturn(typeof OldEnum.SECOND)
-        .equals(OldEnum.SECOND)
+        .equals(OldEnum.SECOND),
     ),
-    createTest('set optionalCallback, then undefined', () =>
+    createTest("set optionalCallback, then undefined", () =>
       it(() => {
-        testObject.optionalCallback = () => {}
-        testObject.optionalCallback = undefined
-      }).didNotThrow()
+        testObject.optionalCallback = () => {};
+        testObject.optionalCallback = undefined;
+      }).didNotThrow(),
     ),
-    createTest('get optionalCallback (== self)', () =>
+    createTest("get optionalCallback (== self)", () =>
       it(() => {
-        testObject.optionalCallback = () => {}
-        return testObject.optionalCallback
+        testObject.optionalCallback = () => {};
+        return testObject.optionalCallback;
       })
         .didNotThrow()
-        .didReturn('function')
+        .didReturn("function"),
     ),
 
     // Test basic functions
-    createTest('addNumbers(5, 13) = 18', () =>
+    createTest("addNumbers(5, 13) = 18", () =>
       it(() => testObject.addNumbers(5, 13))
         .didNotThrow()
-        .equals(18)
+        .equals(18),
     ),
     createTest('addStrings("hello ", "world") = "hello world"', () =>
-      it(() => testObject.addStrings('hello ', 'world'))
+      it(() => testObject.addStrings("hello ", "world"))
         .didNotThrow()
-        .equals('hello world')
+        .equals("hello world"),
     ),
-    createTest('simpleFunc()', () =>
+    createTest("simpleFunc()", () =>
       it(() => testObject.simpleFunc())
         .didNotThrow()
-        .didReturn('undefined')
+        .didReturn("undefined"),
     ),
-    createTest('multipleArguments(...)', () =>
-      it(() => testObject.multipleArguments(13, 'hello!', true))
+    createTest("multipleArguments(...)", () =>
+      it(() => testObject.multipleArguments(13, "hello!", true))
         .didNotThrow()
-        .didReturn('undefined')
+        .didReturn("undefined"),
     ),
 
     // Arrays
-    createTest('bounceNumbers(...) equals', () =>
+    createTest("bounceNumbers(...) equals", () =>
       it(() => testObject.bounceNumbers([1, 2, 13, 42]))
         .didNotThrow()
-        .didReturn('object')
-        .equals([1, 2, 13, 42])
+        .didReturn("object")
+        .equals([1, 2, 13, 42]),
     ),
-    createTest('bounceStrings(...) equals', () =>
-      it(() => testObject.bounceStrings(['hello', 'world', '!']))
+    createTest("bounceStrings(...) equals", () =>
+      it(() => testObject.bounceStrings(["hello", "world", "!"]))
         .didNotThrow()
-        .didReturn('object')
-        .equals(['hello', 'world', '!'])
+        .didReturn("object")
+        .equals(["hello", "world", "!"]),
     ),
-    createTest('bounceEnums(...) equals', () =>
-      it(() => testObject.bounceEnums(['gas', 'hybrid']))
+    createTest("bounceEnums(...) equals", () =>
+      it(() => testObject.bounceEnums(["gas", "hybrid"]))
         .didNotThrow()
-        .didReturn('object')
-        .equals(['gas', 'hybrid'])
+        .didReturn("object")
+        .equals(["gas", "hybrid"]),
     ),
-    createTest('bounceStructs(...) equals', () =>
+    createTest("bounceStructs(...) equals", () =>
       it(() =>
         testObject.bounceStructs([
-          { age: 24, name: 'Marc' },
-          { age: 5, name: 'Ben' },
-        ])
+          { age: 24, name: "Marc" },
+          { age: 5, name: "Ben" },
+        ]),
       )
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object")
         .equals([
-          { age: 24, name: 'Marc' },
-          { age: 5, name: 'Ben' },
-        ])
+          { age: 24, name: "Marc" },
+          { age: 5, name: "Ben" },
+        ]),
     ),
 
-    createTest('complexEnumCallback(...)', async () =>
+    createTest("complexEnumCallback(...)", async () =>
       (
         await it<Powertrain[]>(async () => {
           return timeoutedPromise((complete) => {
-            testObject.complexEnumCallback(['gas', 'electric'], (result) => {
-              complete(result)
-            })
-          })
+            testObject.complexEnumCallback(["gas", "electric"], (result) => {
+              complete(result);
+            });
+          });
         })
       )
         .didNotThrow()
-        .equals(['gas', 'electric'])
+        .equals(["gas", "electric"]),
     ),
 
     // Test Dates
-    createTest('currentDate(...) is a Date', () =>
+    createTest("currentDate(...) is a Date", () =>
       it(() => {
-        const now = testObject.currentDate()
-        return now instanceof Date
+        const now = testObject.currentDate();
+        return now instanceof Date;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('add1Hour(...)', () =>
+    createTest("add1Hour(...)", () =>
       it(() => {
-        const added = testObject.add1Hour(BASE_DATE)
-        return added.getTime()
+        const added = testObject.add1Hour(BASE_DATE);
+        return added.getTime();
       })
         .didNotThrow()
-        .equals(DATE_PLUS_1H.getTime())
+        .equals(DATE_PLUS_1H.getTime()),
     ),
-    createTest('currentDate(...) is roughly same JS value', () =>
+    createTest("currentDate(...) is roughly same JS value", () =>
       it(() => {
-        const nativeNow = testObject.currentDate()
-        const jsNow = new Date()
-        const msDiff = Math.abs(jsNow.getTime() - nativeNow.getTime())
-        return msDiff < 10
+        const nativeNow = testObject.currentDate();
+        const jsNow = new Date();
+        const msDiff = Math.abs(jsNow.getTime() - nativeNow.getTime());
+        return msDiff < 10;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
 
     // Test Maps
-    createTest('createMap()', () =>
+    createTest("createMap()", () =>
       it(() => testObject.createMap())
         .didNotThrow()
-        .didReturn('object')
-        .toContain('object')
-        .toContain('array')
-        .toContain('null')
-        .toContain('bigint')
-        .toContain('string')
-        .toContain('bool')
-        .toContain('number')
+        .didReturn("object")
+        .toContain("object")
+        .toContain("array")
+        .toContain("null")
+        .toContain("bigint")
+        .toContain("string")
+        .toContain("bool")
+        .toContain("number"),
     ),
-    createTest('createMap().array', () =>
+    createTest("createMap().array", () =>
       it(() => testObject.createMap().array)
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object")
         .equals([
           testObject.numberValue,
           testObject.boolValue,
           testObject.stringValue,
           testObject.bigintValue,
-        ])
+        ]),
     ),
-    createTest('createMap().object', () =>
+    createTest("createMap().object", () =>
       it(() => testObject.createMap().object)
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object")
         .equals({
           array: [
             testObject.numberValue,
@@ -476,266 +493,254 @@ export function getTests(
           string: testObject.stringValue,
           number: testObject.numberValue,
           null: null,
-        })
+        }),
     ),
-    createTest('mapRoundtrip(...) works', () => {
-      const map = testObject.createMap()
+    createTest("mapRoundtrip(...) works", () => {
+      const map = testObject.createMap();
       return it(() => testObject.mapRoundtrip(map))
         .didNotThrow()
-        .equals(map)
+        .equals(map);
     }),
-    createTest('getMapKeys(...) works', () => {
-      const map = testObject.createMap()
-      const targetKeys = [...Object.keys(map)].sort()
+    createTest("getMapKeys(...) works", () => {
+      const map = testObject.createMap();
+      const targetKeys = [...Object.keys(map)].sort();
       return it(() => {
-        const keys = testObject.getMapKeys(map)
-        return [...keys].sort()
+        const keys = testObject.getMapKeys(map);
+        return [...keys].sort();
       })
         .didNotThrow()
-        .equals(targetKeys)
+        .equals(targetKeys);
     }),
 
     // Test errors
-    createTest('funcThatThrows() throws', () =>
-      it(() => testObject.funcThatThrows()).didThrow(
-        `Error: ${testObject.name}.funcThatThrows(...): This function will only work after sacrificing seven lambs!`
-      )
-    ),
-    createTest('funcThatThrowsBeforePromise() throws', async () =>
-      (
-        await it(async () => await testObject.funcThatThrowsBeforePromise())
-      ).didThrow(
-        `Error: ${testObject.name}.funcThatThrowsBeforePromise(...): This function will only work after sacrificing eight lambs!`
-      )
-    ),
-    createTest('throwError(error) throws same message from JS', () =>
+    createTest("throwError(error) throws same message from JS", () =>
       it(() => {
-        const error = new Error('rethrowing a JS error from native!')
-        testObject.throwError(error)
+        const error = new Error("rethrowing a JS error from native!");
+        testObject.throwError(error);
       }).didThrow(
-        `Error: ${testObject.name}.throwError(...): Error: rethrowing a JS error from native!`
-      )
+        `Error: ${testObject.name}.throwError(...): Error: rethrowing a JS error from native!`,
+      ),
     ),
 
     // Optional parameters
-    createTest('tryOptionalParams(...) omitted', () =>
+    createTest("tryOptionalParams(...) omitted", () =>
       it(() => testObject.tryOptionalParams(13, true))
         .didNotThrow()
-        .didReturn('string')
-        .equals('value omitted!')
+        .didReturn("string")
+        .equals("value omitted!"),
     ),
-    createTest('tryOptionalParams(...) provided', () =>
-      it(() => testObject.tryOptionalParams(13, true, 'hello'))
+    createTest("tryOptionalParams(...) provided", () =>
+      it(() => testObject.tryOptionalParams(13, true, "hello"))
         .didNotThrow()
-        .didReturn('string')
-        .equals('hello')
+        .didReturn("string")
+        .equals("hello"),
     ),
-    createTest('tryOptionalParams(...) one-too-many', () =>
+    createTest("tryOptionalParams(...) one-too-many", () =>
       it(() =>
         testObject.tryOptionalParams(
           13,
           true,
-          'hello',
+          "hello",
           // @ts-expect-error
-          'too many args!'
-        )
+          "too many args!",
+        ),
       ).didThrow(
-        `Error: \`${testObject.name}.tryOptionalParams(...)\` expected between 2 and 3 arguments, but received 4!`
-      )
+        `Error: \`${testObject.name}.tryOptionalParams(...)\` expected between 2 and 3 arguments, but received 4!`,
+      ),
     ),
-    createTest('tryOptionalParams(...) one-too-few', () =>
+    createTest("tryOptionalParams(...) one-too-few", () =>
       it(() =>
         // @ts-expect-error
-        testObject.tryOptionalParams(13)
+        testObject.tryOptionalParams(13),
       ).didThrow(
-        `Error: \`${testObject.name}.tryOptionalParams(...)\` expected between 2 and 3 arguments, but received 1!`
-      )
+        `Error: \`${testObject.name}.tryOptionalParams(...)\` expected between 2 and 3 arguments, but received 1!`,
+      ),
     ),
-    createTest('tryMiddleParam(...)', () =>
-      it(() => testObject.tryMiddleParam(13, undefined, 'hello!'))
+    createTest("tryMiddleParam(...)", () =>
+      it(() => testObject.tryMiddleParam(13, undefined, "hello!"))
         .didNotThrow()
-        .equals('hello!')
+        .equals("hello!"),
     ),
-    createTest('tryMiddleParam(...)', () =>
-      it(() => testObject.tryMiddleParam(13, true, 'passed'))
+    createTest("tryMiddleParam(...)", () =>
+      it(() => testObject.tryMiddleParam(13, true, "passed"))
         .didNotThrow()
-        .equals('passed')
+        .equals("passed"),
     ),
-    createTest('tryOptionalEnum(...)', () =>
-      it(() => testObject.tryOptionalEnum('gas'))
+    createTest("tryOptionalEnum(...)", () =>
+      it(() => testObject.tryOptionalEnum("gas"))
         .didNotThrow()
-        .equals('gas')
+        .equals("gas"),
     ),
-    createTest('tryOptionalEnum(...)', () =>
+    createTest("tryOptionalEnum(...)", () =>
       it(() => testObject.tryOptionalEnum(undefined))
         .didNotThrow()
-        .equals(undefined)
+        .equals(undefined),
     ),
 
     // Variants tests
-    createTest('set someVariant to 55', () =>
-      it(() => (testObject.someVariant = 55)).didNotThrow()
+    createTest("set someVariant to 55", () =>
+      it(() => (testObject.someVariant = 55)).didNotThrow(),
     ),
-    createTest('get someVariant (== 55)', () =>
+    createTest("get someVariant (== 55)", () =>
       it(() => {
-        testObject.someVariant = 55
-        return testObject.someVariant
-      }).equals(55)
+        testObject.someVariant = 55;
+        return testObject.someVariant;
+      }).equals(55),
     ),
     createTest("set someVariant to 'some-string'", () =>
-      it(() => (testObject.someVariant = 'some-string')).didNotThrow()
+      it(() => (testObject.someVariant = "some-string")).didNotThrow(),
     ),
     createTest("get someVariant (== 'some-string')", () =>
       it(() => {
-        testObject.someVariant = 'some-string'
-        return testObject.someVariant
-      }).equals('some-string')
+        testObject.someVariant = "some-string";
+        return testObject.someVariant;
+      }).equals("some-string"),
     ),
-    createTest('set someVariant to false', () =>
+    createTest("set someVariant to false", () =>
       it(
         () =>
           // @ts-expect-error
-          (testObject.someVariant = false)
+          (testObject.someVariant = false),
       ).didThrow(
-        `Error: ${testObject.name}.someVariant: Cannot convert "false" to any type in variant<std::string, double>!`
-      )
+        `Error: ${testObject.name}.someVariant: Cannot convert "false" to any type in variant<std::string, double>!`,
+      ),
     ),
 
-    createTest('passVariant(...) holds something else ([1,2,3])', () =>
+    createTest("passVariant(...) holds something else ([1,2,3])", () =>
       it(() => testObject.passVariant([1, 2, 3]))
         .didNotThrow()
-        .equals('holds something else!')
+        .equals("holds something else!"),
     ),
-    createTest('passVariant(...) holds string(hello!)', () =>
-      it(() => testObject.passVariant('hello!'))
+    createTest("passVariant(...) holds string(hello!)", () =>
+      it(() => testObject.passVariant("hello!"))
         .didNotThrow()
-        .equals('hello!')
+        .equals("hello!"),
     ),
-    createTest('passVariant(...) holds number (5)', () =>
+    createTest("passVariant(...) holds number (5)", () =>
       it(() => testObject.passVariant(5))
         .didNotThrow()
-        .equals(5)
+        .equals(5),
     ),
-    createTest('passVariant(...) wrong type ({})', () =>
+    createTest("passVariant(...) wrong type ({})", () =>
       it(() =>
         testObject.passVariant(
           // @ts-expect-error
-          {}
-        )
-      ).didThrow()
+          {},
+        ),
+      ).didThrow(),
     ),
     // Complex variants tests
-    createTest('getVariantEnum(...) converts enum', () =>
+    createTest("getVariantEnum(...) converts enum", () =>
       it(() => testObject.getVariantEnum(OldEnum.THIRD))
         .didNotThrow()
-        .equals(OldEnum.THIRD)
+        .equals(OldEnum.THIRD),
     ),
-    createTest('getVariantEnum(...) converts boolean', () =>
+    createTest("getVariantEnum(...) converts boolean", () =>
       it(() => testObject.getVariantEnum(true))
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('getVariantEnum(...) throws at wrong type (string)', () =>
+    createTest("getVariantEnum(...) throws at wrong type (string)", () =>
       // @ts-expect-error
-      it(() => testObject.getVariantEnum('string')).didThrow(
-        `Error: ${testObject.name}.getVariantEnum(...): Cannot convert "string" to any type in variant<bool, margelo::nitro::image::OldEnum>!`
-      )
+      it(() => testObject.getVariantEnum("string")).didThrow(
+        `Error: ${testObject.name}.getVariantEnum(...): Cannot convert "string" to any type in variant<bool, margelo::nitro::image::OldEnum>!`,
+      ),
     ),
-    createTest('getVariantObjects(...) converts Person', () =>
+    createTest("getVariantObjects(...) converts Person", () =>
       it(() => testObject.getVariantObjects(TEST_PERSON))
         .didNotThrow()
-        .equals(TEST_PERSON)
+        .equals(TEST_PERSON),
     ),
-    createTest('getVariantObjects(...) converts Car', () =>
+    createTest("getVariantObjects(...) converts Car", () =>
       it(() => testObject.getVariantObjects(TEST_CAR))
         .didNotThrow()
-        .equals(TEST_CAR)
+        .equals(TEST_CAR),
     ),
-    createTest('getVariantObjects(...) converts Car (+ person)', () =>
+    createTest("getVariantObjects(...) converts Car (+ person)", () =>
       it(() =>
-        testObject.getVariantObjects({ ...TEST_CAR, driver: TEST_PERSON })
+        testObject.getVariantObjects({ ...TEST_CAR, driver: TEST_PERSON }),
       )
         .didNotThrow()
-        .equals({ ...TEST_CAR, driver: TEST_PERSON })
+        .equals({ ...TEST_CAR, driver: TEST_PERSON }),
     ),
-    createTest('getVariantObjects(...) throws at wrong type (string)', () =>
+    createTest("getVariantObjects(...) throws at wrong type (string)", () =>
       // @ts-expect-error
-      it(() => testObject.getVariantObjects('some-string')).didThrow(
-        `Error: ${testObject.name}.getVariantObjects(...): Cannot convert "some-string" to any type in variant<margelo::nitro::image::Car, margelo::nitro::image::Person>!`
-      )
+      it(() => testObject.getVariantObjects("some-string")).didThrow(
+        `Error: ${testObject.name}.getVariantObjects(...): Cannot convert "some-string" to any type in variant<margelo::nitro::image::Car, margelo::nitro::image::Person>!`,
+      ),
     ),
     createTest(
-      'getVariantObjects(...) throws at wrong type (wrong object)',
+      "getVariantObjects(...) throws at wrong type (wrong object)",
       () =>
         it(() =>
           // @ts-expect-error
-          testObject.getVariantObjects({ someValue: 55 })
+          testObject.getVariantObjects({ someValue: 55 }),
         ).didThrow(
-          `Error: ${testObject.name}.getVariantObjects(...): Cannot convert "[object Object]" to any type in variant<margelo::nitro::image::Car, margelo::nitro::image::Person>!`
-        )
+          `Error: ${testObject.name}.getVariantObjects(...): Cannot convert "[object Object]" to any type in variant<margelo::nitro::image::Car, margelo::nitro::image::Person>!`,
+        ),
     ),
-    createTest('getVariantHybrid(...) converts Hybrid', () =>
+    createTest("getVariantHybrid(...) converts Hybrid", () =>
       // @ts-expect-error TypeScript spazzes out since it can be both types of HybridObject
       it(() => testObject.getVariantHybrid(testObject))
         .didNotThrow()
         // @ts-expect-error
-        .toContain('getVariantHybrid')
+        .toContain("getVariantHybrid"),
     ),
-    createTest('getVariantHybrid(...) converts Person', () =>
+    createTest("getVariantHybrid(...) converts Person", () =>
       it(() => testObject.getVariantHybrid(TEST_PERSON))
         .didNotThrow()
-        .equals(TEST_PERSON)
+        .equals(TEST_PERSON),
     ),
-    createTest('getVariantHybrid(...) throws at wrong type (string)', () =>
+    createTest("getVariantHybrid(...) throws at wrong type (string)", () =>
       // @ts-expect-error
-      it(() => testObject.getVariantHybrid('some-string')).didThrow()
+      it(() => testObject.getVariantHybrid("some-string")).didThrow(),
     ),
     createTest(
-      'getVariantHybrid(...) throws at wrong type (wrong object)',
+      "getVariantHybrid(...) throws at wrong type (wrong object)",
       () =>
         it(() =>
           // @ts-expect-error
-          testObject.getVariantHybrid({ someValue: 55 })
-        ).didThrow()
+          testObject.getVariantHybrid({ someValue: 55 }),
+        ).didThrow(),
     ),
-    createTest('passNamedVariant(...) works', () =>
-      it(() => testObject.passNamedVariant('Hello world!'))
+    createTest("passNamedVariant(...) works", () =>
+      it(() => testObject.passNamedVariant("Hello world!"))
         .didNotThrow()
-        .equals('Hello world!')
+        .equals("Hello world!"),
     ),
 
     // More complex variants...
-    ...('getVariantTuple' in testObject
+    ...("getVariantTuple" in testObject
       ? [
-          createTest('getVariantTuple(...) converts Float2', () =>
+          createTest("getVariantTuple(...) converts Float2", () =>
             it(() => testObject.getVariantTuple([10, 20]))
               .didNotThrow()
-              .equals([10, 20])
+              .equals([10, 20]),
           ),
-          createTest('getVariantTuple(...) converts Float3', () =>
+          createTest("getVariantTuple(...) converts Float3", () =>
             it(() => testObject.getVariantTuple([10, 20, 30]))
               .didNotThrow()
-              .equals([10, 20, 30])
+              .equals([10, 20, 30]),
           ),
           createTest(
-            'getVariantTuple(...) throws at wrong size (4 items)',
+            "getVariantTuple(...) throws at wrong size (4 items)",
             () =>
               it(() =>
                 // @ts-expect-error
-                testObject.getVariantTuple([10, 20, 30, 40, 50])
-              ).didThrow()
+                testObject.getVariantTuple([10, 20, 30, 40, 50]),
+              ).didThrow(),
           ),
-          createTest('getVariantTuple(...) throws at wrong type (string)', () =>
+          createTest("getVariantTuple(...) throws at wrong type (string)", () =>
             // @ts-expect-error
-            it(() => testObject.getVariantTuple('hello')).didThrow()
+            it(() => testObject.getVariantTuple("hello")).didThrow(),
           ),
           createTest(
-            'getVariantTuple(...) throws at wrong type (string[])',
+            "getVariantTuple(...) throws at wrong type (string[])",
             () =>
               it(() =>
                 // @ts-expect-error
-                testObject.getVariantTuple(['hello', 'world'])
-              ).didThrow()
+                testObject.getVariantTuple(["hello", "world"]),
+              ).didThrow(),
           ),
         ]
       : [
@@ -743,686 +748,681 @@ export function getTests(
         ]),
 
     // Tuples Tests
-    ...('someTuple' in testObject
+    ...("someTuple" in testObject
       ? [
           createTest("set someTuple to [55, 'hello']", () =>
-            it(() => (testObject.someTuple = [55, 'hello'])).didNotThrow()
+            it(() => (testObject.someTuple = [55, "hello"])).didNotThrow(),
           ),
           createTest("get someTuple (== [55, 'hello'])", () =>
             it(() => {
-              testObject.someTuple = [55, 'hello']
-              return testObject.someTuple
-            }).equals([55, 'hello'])
+              testObject.someTuple = [55, "hello"];
+              return testObject.someTuple;
+            }).equals([55, "hello"]),
           ),
-          createTest('flip([10, 20, 30])', () =>
+          createTest("flip([10, 20, 30])", () =>
             it(() => testObject.flip([10, 20, 30]))
               .didNotThrow()
-              .equals([30, 20, 10])
+              .equals([30, 20, 10]),
           ),
-          createTest('flip([10, 20]) throws', () =>
+          createTest("flip([10, 20]) throws", () =>
             it(() =>
               testObject.flip(
                 // @ts-expect-error
-                [10, 20]
-              )
+                [10, 20],
+              ),
             ).didThrow(
-              `Error: ${testObject.name}.flip(...): The given JS Array has 2 items, but std::tuple<double, double, double> expects 3 items.`
-            )
+              `Error: ${testObject.name}.flip(...): The given JS Array has 2 items, but std::tuple<double, double, double> expects 3 items.`,
+            ),
           ),
-          createTest('passTuple(...)', () =>
-            it(() => testObject.passTuple([13, 'hello', true]))
+          createTest("passTuple(...)", () =>
+            it(() => testObject.passTuple([13, "hello", true]))
               .didNotThrow()
-              .equals([13, 'hello', true])
+              .equals([13, "hello", true]),
           ),
         ]
       : [
           // Swift/Kotlin Test Object does not have tuples yet!
         ]),
 
-    createTest('bounceMap(map) === map', () =>
+    createTest("bounceMap(map) === map", () =>
       it(() => testObject.bounceMap(TEST_MAP))
         .didNotThrow()
-        .didReturn('object')
-        .equals(TEST_MAP)
+        .didReturn("object")
+        .equals(TEST_MAP),
     ),
-    createTest('extractMap(mapWrapper) === mapWrapper.map', () =>
+    createTest("extractMap(mapWrapper) === mapWrapper.map", () =>
       it(() => testObject.extractMap({ map: TEST_MAP_2 }))
         .didNotThrow()
-        .didReturn('object')
-        .equals(TEST_MAP_2)
+        .didReturn("object")
+        .equals(TEST_MAP_2),
     ),
 
     // Promises
-    createTest('wait', async () =>
-      (await it(() => testObject.wait(0.1))).didNotThrow()
+    createTest("wait", async () =>
+      (await it(() => testObject.wait(0.1))).didNotThrow(),
     ),
-    createTest('calculateFibonacciSync(5)', async () =>
+    createTest("calculateFibonacciSync(5)", async () =>
       it(() => testObject.calculateFibonacciSync(10))
         .didNotThrow()
-        .equals(55n)
+        .equals(55n),
     ),
-    createTest('calculateFibonacciAsync(5)', async () =>
+    createTest("calculateFibonacciAsync(5)", async () =>
       (await it(() => testObject.calculateFibonacciAsync(10)))
         .didNotThrow()
-        .equals(55n)
+        .equals(55n),
     ),
-    createTest('promiseThrows() throws', async () =>
-      (await it(() => testObject.promiseThrows())).didThrow(
-        'Error: Promise throws :)'
-      )
-    ),
-    createTest('twoPromises can run in parallel', async () =>
+    createTest("twoPromises can run in parallel", async () =>
       (
         await it(async () => {
-          const start = performance.now()
+          const start = performance.now();
           // 0.5s + 0.5s = ~1s in serial, ~0.5s in parallel
-          await Promise.all([testObject.wait(0.5), testObject.wait(0.5)])
-          const end = performance.now()
-          const didRunInParallel = end - start < 1000
-          return didRunInParallel
+          await Promise.all([testObject.wait(0.5), testObject.wait(0.5)]);
+          const end = performance.now();
+          const didRunInParallel = end - start < 1000;
+          return didRunInParallel;
         })
       )
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('JS Promise<number> can be awaited on native side', async () =>
+    createTest("JS Promise<number> can be awaited on native side", async () =>
       (
         await it(() => {
           return timeoutedPromise(async (complete) => {
-            let resolve = (_: number) => {}
+            let resolve = (_: number) => {};
             const promise = new Promise<number>((r) => {
-              resolve = r
-            })
-            const nativePromise = testObject.awaitAndGetPromise(promise)
-            resolve(5)
-            const result = await nativePromise
-            complete(result)
-          })
+              resolve = r;
+            });
+            const nativePromise = testObject.awaitAndGetPromise(promise);
+            resolve(5);
+            const result = await nativePromise;
+            complete(result);
+          });
         })
       )
         .didNotThrow()
-        .equals(5)
+        .equals(5),
     ),
-    createTest('JS Promise<Car> can be awaited on native side', async () =>
+    createTest("JS Promise<Car> can be awaited on native side", async () =>
       (
         await it(() => {
           return timeoutedPromise(async (complete) => {
-            let resolve = (_: Car) => {}
+            let resolve = (_: Car) => {};
             const promise = new Promise<Car>((r) => {
-              resolve = r
-            })
-            const nativePromise = testObject.awaitAndGetComplexPromise(promise)
-            resolve(TEST_CAR)
-            const result = await nativePromise
-            complete(result)
-          })
+              resolve = r;
+            });
+            const nativePromise = testObject.awaitAndGetComplexPromise(promise);
+            resolve(TEST_CAR);
+            const result = await nativePromise;
+            complete(result);
+          });
         })
       )
         .didNotThrow()
-        .equals(TEST_CAR)
+        .equals(TEST_CAR),
     ),
-    createTest('JS Promise<void> can be awaited on native side', async () =>
+    createTest("JS Promise<void> can be awaited on native side", async () =>
       (
         await it(() => {
           return timeoutedPromise(async (complete) => {
-            let resolve = () => {}
+            let resolve = () => {};
             const promise = new Promise<void>((r) => {
-              resolve = r
-            })
-            const nativePromise = testObject.awaitPromise(promise)
-            resolve()
-            const result = await nativePromise
-            complete(result)
-          })
+              resolve = r;
+            });
+            const nativePromise = testObject.awaitPromise(promise);
+            resolve();
+            const result = await nativePromise;
+            complete(result);
+          });
         })
       )
         .didNotThrow()
-        .equals(undefined)
+        .equals(undefined),
     ),
     createTest(
-      'JS Promise<void> that rejects will also reject on native',
+      "JS Promise<void> that rejects will also reject on native",
       async () =>
         (
           await it(() => {
             return timeoutedPromise(async () => {
-              let reject = (_: Error) => {}
+              let reject = (_: Error) => {};
               const promise = new Promise<void>((_, r) => {
-                reject = r
-              })
-              const nativePromise = testObject.awaitPromise(promise)
-              reject(new Error(`rejected from JS!`))
-              await nativePromise
-            })
+                reject = r;
+              });
+              const nativePromise = testObject.awaitPromise(promise);
+              reject(new Error(`rejected from JS!`));
+              await nativePromise;
+            });
           })
-        ).didThrow()
+        ).didThrow(),
     ),
 
     // Callbacks
-    createTest('callCallback(...)', async () =>
+    createTest("callCallback(...)", async () =>
       (
         await it<boolean>(async () => {
           return timeoutedPromise((complete) => {
             testObject.callCallback(() => {
-              complete(true)
-            })
-          })
+              complete(true);
+            });
+          });
         })
       )
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('callWithOptional(undefined)', async () =>
+    createTest("callWithOptional(undefined)", async () =>
       (
         await it<number | undefined>(async () => {
           return timeoutedPromise((complete) => {
             testObject.callWithOptional(undefined, (val) => {
-              complete(val)
-            })
-          })
+              complete(val);
+            });
+          });
         })
       )
         .didNotThrow()
-        .equals(undefined)
+        .equals(undefined),
     ),
-    createTest('callWithOptional(433)', async () =>
+    createTest("callWithOptional(433)", async () =>
       (
         await it<number | undefined>(async () => {
           return timeoutedPromise((complete) => {
             testObject.callWithOptional(433, (val) => {
-              complete(val)
-            })
-          })
+              complete(val);
+            });
+          });
         })
       )
         .didNotThrow()
-        .equals(433)
+        .equals(433),
     ),
-    createTest('getValueFromJsCallback(...)', async () =>
+    createTest("getValueFromJsCallback(...)", async () =>
       (
         await it(async () => {
-          let value: string | undefined
+          let value: string | undefined;
           await testObject.getValueFromJsCallback(
-            () => 'hello',
+            () => "hello",
             (val) => {
-              value = val
-            }
-          )
-          return value
+              value = val;
+            },
+          );
+          return value;
         })
       )
         .didNotThrow()
-        .equals('hello')
+        .equals("hello"),
     ),
     createTest(
-      'Single callback can be called and awaited: getValueFromJSCallbackAndWait(...)',
+      "Single callback can be called and awaited: getValueFromJSCallbackAndWait(...)",
       async () =>
         (await it(() => testObject.getValueFromJSCallbackAndWait(() => 73)))
           .didNotThrow()
-          .equals(73)
+          .equals(73),
     ),
-    createTest('Multiple callbacks are all called: callAll(...)', async () =>
+    createTest("Multiple callbacks are all called: callAll(...)", async () =>
       (
         await it(async () => {
           return timeoutedPromise((complete) => {
-            let calledCount = 0
+            let calledCount = 0;
             const func = () => {
-              calledCount++
-              if (calledCount === 3) complete(calledCount)
-            }
-            testObject.callAll(func, func, func)
-          })
+              calledCount++;
+              if (calledCount === 3) complete(calledCount);
+            };
+            testObject.callAll(func, func, func);
+          });
         })
       )
         .didNotThrow()
-        .equals(3)
+        .equals(3),
     ),
     createTest(
-      'Callback can be called multiple times: callSumUpNTimes(...)',
+      "Callback can be called multiple times: callSumUpNTimes(...)",
       async () =>
         (await it(async () => await testObject.callSumUpNTimes(() => 7, 5)))
           .didNotThrow()
-          .equals(7 * 5 /* = 35 */)
+          .equals(7 * 5 /* = 35 */),
     ),
     createTest(
-      'Async callback can be awaited and returned on native side: callbackAsyncPromise(...)',
+      "Async callback can be awaited and returned on native side: callbackAsyncPromise(...)",
       async () =>
         (
           await it(async () => {
             return timeoutedPromise(async (complete) => {
               const result = await testObject.callbackAsyncPromise(async () => {
-                return 13
-              })
-              complete(result)
-            })
+                return 13;
+              });
+              complete(result);
+            });
           })
         )
           .didNotThrow()
-          .equals(13)
+          .equals(13),
     ),
     createTest(
-      'Async callback can be awaited and returned on native side: callbackAsyncPromiseBuffer(...)',
+      "Async callback can be awaited and returned on native side: callbackAsyncPromiseBuffer(...)",
       async () =>
         (
           await it(async () => {
             return timeoutedPromise<ArrayBuffer>(async (complete) => {
               const result = await testObject.callbackAsyncPromiseBuffer(
                 async () => {
-                  return await testObject.createArrayBufferAsync()
-                }
-              )
-              complete(result)
-            })
+                  return await testObject.createArrayBufferAsync();
+                },
+              );
+              complete(result);
+            });
           })
         )
           .didNotThrow()
-          .didReturn('object')
-          .toContain('byteLength')
+          .didReturn("object")
+          .toContain("byteLength"),
     ),
     createTest(
-      'Async callback that throws in JS will rethrow in native',
+      "Async callback that throws in JS will rethrow in native",
       async () =>
         (
           await it(async () => {
             return timeoutedPromise<ArrayBuffer>(async () => {
               await testObject.callbackAsyncPromise(() => {
-                throw new Error(`throwing in JS!`)
-              })
-            })
+                throw new Error(`throwing in JS!`);
+              });
+            });
           })
-        ).didThrow()
+        ).didThrow(),
     ),
-    createTest('Getting complex callback from native returns a function', () =>
+    createTest("Getting complex callback from native returns a function", () =>
       it(() => testObject.getComplexCallback())
         .didNotThrow()
-        .didReturn('function')
+        .didReturn("function"),
     ),
 
     // Objects
-    createTest('getCar()', () =>
+    createTest("getCar()", () =>
       it(() => testObject.getCar())
         .didNotThrow()
-        .didReturn('object')
-        .toContain('year')
-        .toContain('make')
-        .toContain('model')
-        .toContain('power')
-        .toContain('powertrain')
-        .toContain('driver')
+        .didReturn("object")
+        .toContain("year")
+        .toContain("make")
+        .toContain("model")
+        .toContain("power")
+        .toContain("powertrain")
+        .toContain("driver"),
     ),
-    createTest('isCarElectric(...)', () =>
+    createTest("isCarElectric(...)", () =>
       it(() =>
         testObject.isCarElectric({
-          make: 'Lamborghini',
+          make: "Lamborghini",
           year: 2018,
-          model: 'Huracan Performante',
+          model: "Huracan Performante",
           power: 640,
-          powertrain: 'gas',
+          powertrain: "gas",
           isFast: true,
-        })
+        }),
       )
         .didNotThrow()
-        .equals(false)
+        .equals(false),
     ),
-    createTest('getDriver(...) with no driver', () =>
+    createTest("getDriver(...) with no driver", () =>
       it(() =>
         testObject.getDriver({
-          make: 'Lamborghini',
+          make: "Lamborghini",
           year: 2018,
-          model: 'Huracan Performante',
+          model: "Huracan Performante",
           power: 640,
-          powertrain: 'gas',
+          powertrain: "gas",
           isFast: true,
-        })
+        }),
       )
         .didNotThrow()
-        .equals(undefined)
+        .equals(undefined),
     ),
-    createTest('getDriver(...) with driver', () =>
+    createTest("getDriver(...) with driver", () =>
       it(() =>
         testObject.getDriver({
-          make: 'Lamborghini',
+          make: "Lamborghini",
           year: 2018,
-          model: 'Huracan Performante',
+          model: "Huracan Performante",
           power: 640,
-          powertrain: 'gas',
-          driver: { age: 24, name: 'marc' },
+          powertrain: "gas",
+          driver: { age: 24, name: "marc" },
           isFast: true,
-        })
+        }),
       )
         .didNotThrow()
-        .equals({ age: 24, name: 'marc' })
+        .equals({ age: 24, name: "marc" }),
     ),
-    createTest('jsStyleObjectAsParameters()', async () =>
+    createTest("jsStyleObjectAsParameters()", async () =>
       (
         await it(() =>
           timeoutedPromise<number>((complete) => {
             testObject.jsStyleObjectAsParameters({
               value: 55,
               onChanged: (num) => complete(num),
-            })
-          })
+            });
+          }),
         )
       )
         .didNotThrow()
-        .didReturn('number')
-        .equals(55)
+        .didReturn("number")
+        .equals(55),
     ),
 
     // Hybrid Object Tests
-    createTest('get self', () =>
+    createTest("get self", () =>
       it(() => testObject.thisObject)
         .didNotThrow()
-        .didReturn('object')
-        .toContain('bigintValue')
-        .toContain('boolValue')
-        .toContain('stringValue')
+        .didReturn("object")
+        .toContain("bigintValue")
+        .toContain("boolValue")
+        .toContain("stringValue"),
     ),
-    createTest('newTestObject()', () =>
+    createTest("newTestObject()", () =>
       it(() => testObject.newTestObject())
         .didNotThrow()
-        .didReturn('object')
-        .toContain('bigintValue')
-        .toContain('boolValue')
-        .toContain('stringValue')
+        .didReturn("object")
+        .toContain("bigintValue")
+        .toContain("boolValue")
+        .toContain("stringValue"),
     ),
 
     // ArrayBuffers
-    createTest('createArrayBuffer()', () =>
+    createTest("createArrayBuffer()", () =>
       it(() => testObject.createArrayBuffer())
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object"),
     ),
-    createTest('getBufferLastItem(...) == 5', () =>
+    createTest("getBufferLastItem(...) == 5", () =>
       it(() => {
-        const buffer = new Uint8Array([13, 20, 55])
-        return testObject.getBufferLastItem(buffer.buffer)
+        const buffer = new Uint8Array([13, 20, 55]);
+        return testObject.getBufferLastItem(buffer.buffer);
       })
         .didNotThrow()
-        .equals(55)
+        .equals(55),
     ),
-    createTest('setAllValuesTo(...)', () =>
+    createTest("setAllValuesTo(...)", () =>
       it(() => {
-        const buffer = new Uint8Array(30)
-        testObject.setAllValuesTo(buffer.buffer, 55)
-        return buffer.every((v) => v === 55)
+        const buffer = new Uint8Array(30);
+        testObject.setAllValuesTo(buffer.buffer, 55);
+        return buffer.every((v) => v === 55);
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('createArrayBuffer()', async () =>
+    createTest("createArrayBuffer()", async () =>
       (await it(() => testObject.createArrayBufferAsync()))
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object"),
     ),
 
     // Base HybridObject inherited methods
-    createTest('.toString()', () =>
+    createTest(".toString()", () =>
       it(() => testObject.toString())
         .didNotThrow()
-        .didReturn('string')
-        .equals(`[HybridObject ${testObject.name}]`)
+        .didReturn("string")
+        .equals(`[HybridObject ${testObject.name}]`),
     ),
-    createTest('.name', () =>
+    createTest(".name", () =>
       it(() => testObject.name)
         .didNotThrow()
-        .didReturn('string')
+        .didReturn("string"),
     ),
-    createTest('.equals(...) == true', () =>
+    createTest(".equals(...) == true", () =>
       it(() => testObject.equals(testObject))
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('.equals(.self) == true', () =>
+    createTest(".equals(.self) == true", () =>
       it(() => testObject.equals(testObject.thisObject))
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('.self == .self', () =>
+    createTest(".self == .self", () =>
       // eslint-disable-next-line no-self-compare
       it(() => testObject.thisObject === testObject.thisObject)
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('.equals(newTestObject()) == false', () =>
+    createTest(".equals(newTestObject()) == false", () =>
       it(() => testObject.equals(testObject.newTestObject()))
         .didNotThrow()
-        .equals(false)
+        .equals(false),
     ),
-    createTest('Object.keys(...)', () =>
+    createTest("Object.keys(...)", () =>
       it(() => Object.keys(testObject))
         .didNotThrow()
-        .didReturn('object')
-        .toBeArray()
+        .didReturn("object")
+        .toBeArray(),
     ),
-    ...('rawJsiFunc' in testObject
+    ...("rawJsiFunc" in testObject
       ? [
-          createTest('Call Raw JSI Func', () =>
+          createTest("Call Raw JSI Func", () =>
             // @ts-expect-error
-            it(() => testObject.rawJsiFunc(55, false, 'hello', { obj: true }))
+            it(() => testObject.rawJsiFunc(55, false, "hello", { obj: true }))
               .didNotThrow()
-              .equals([55, false, 'hello', { obj: true }])
+              .equals([55, false, "hello", { obj: true }]),
           ),
         ]
       : [
           // Swift/Kotlin Test Objects don't have raw JSI functions!
         ]),
 
-    createTest('createBase() works', () =>
+    createTest("createBase() works", () =>
       it(() => testObject.createBase())
         .didNotThrow()
-        .didReturn('object')
-        .toContain('baseValue')
+        .didReturn("object")
+        .toContain("baseValue"),
     ),
-    createTest('createChild() works', () =>
+    createTest("createChild() works", () =>
       it(() => testObject.createChild())
         .didNotThrow()
-        .didReturn('object')
-        .toContain('childValue')
-        .toContain('baseValue')
+        .didReturn("object")
+        .toContain("childValue")
+        .toContain("baseValue"),
     ),
     createTest('createBase() has name "Base"', () =>
       it(() => testObject.createBase().name)
         .didNotThrow()
-        .equals('Base')
+        .equals("Base"),
     ),
     createTest('createChild() has name "Child"', () =>
       it(() => testObject.createChild().name)
         .didNotThrow()
-        .equals('Child')
+        .equals("Child"),
     ),
     createTest('createBaseActualChild() has name "Child"', () =>
       it(() => testObject.createBaseActualChild().name)
         .didNotThrow()
-        .equals('Child')
+        .equals("Child"),
     ),
-    createTest('createBaseActualChild() works', () =>
+    createTest("createBaseActualChild() works", () =>
       it(() => testObject.createBaseActualChild())
         .didNotThrow()
-        .didReturn('object')
-        .toContain('baseValue')
+        .didReturn("object")
+        .toContain("baseValue"),
     ),
-    createTest('createBaseActualChild() is actually a child', () =>
+    createTest("createBaseActualChild() is actually a child", () =>
       it(() => testObject.createBaseActualChild())
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object")
         // @ts-expect-error
-        .toContain('childValue')
-        .toContain('baseValue')
+        .toContain("childValue")
+        .toContain("baseValue"),
     ),
-    createTest('bounceChild(Child) ===', () =>
+    createTest("bounceChild(Child) ===", () =>
       it(() => {
-        const child = testObject.createChild()
-        const bounced = testObject.bounceChild(child)
-        return bounced === child
+        const child = testObject.createChild();
+        const bounced = testObject.bounceChild(child);
+        return bounced === child;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('bounceBase(Base) ===', () =>
+    createTest("bounceBase(Base) ===", () =>
       it(() => {
-        const base = testObject.createBase()
-        const bounced = testObject.bounceBase(base)
-        return bounced === base
+        const base = testObject.createBase();
+        const bounced = testObject.bounceBase(base);
+        return bounced === base;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('bounceBase(Child) ===', () =>
+    createTest("bounceBase(Child) ===", () =>
       it(() => {
-        const child = testObject.createChild()
-        const bounced = testObject.bounceBase(child)
-        return bounced === child
+        const child = testObject.createChild();
+        const bounced = testObject.bounceBase(child);
+        return bounced === child;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('bounceChild(Base) throws', () =>
+    createTest("bounceChild(Base) throws", () =>
       it(() => {
         if (__DEV__) {
-          const child = testObject.createBase()
+          const child = testObject.createBase();
           // @ts-expect-error
-          testObject.bounceChild(child)
+          testObject.bounceChild(child);
         } else {
           // This only throws in __DEV__ - in release it is optimized away and would crash. :)
           throw new Error(
-            `This only throws in __DEV__ - in release it is optimized away and would crash. :)`
-          )
+            `This only throws in __DEV__ - in release it is optimized away and would crash. :)`,
+          );
         }
-      }).didThrow()
+      }).didThrow(),
     ),
-    createTest('bounceChildBase(Child) ===', () =>
+    createTest("bounceChildBase(Child) ===", () =>
       it(() => {
-        const child = testObject.createChild()
-        const bounced = testObject.bounceChildBase(child)
-        return bounced === child
+        const child = testObject.createChild();
+        const bounced = testObject.bounceChildBase(child);
+        return bounced === child;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('castBase(Child) works', () =>
+    createTest("castBase(Child) works", () =>
       it(() => {
-        const child = testObject.createChild()
-        const bounced = testObject.castBase(child)
-        return bounced === child
+        const child = testObject.createChild();
+        const bounced = testObject.castBase(child);
+        return bounced === child;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('callbackSync(() => number) returns same number', () =>
+    createTest("callbackSync(() => number) returns same number", () =>
       it(() => {
-        return testObject.callbackSync(() => 55)
+        return testObject.callbackSync(() => 55);
       })
         .didNotThrow()
-        .equals(55)
+        .equals(55),
     ),
-    createTest('new T() works', () =>
+    createTest("new T() works", () =>
       it(() => {
         const HybridTestObjectCpp =
-          getHybridObjectConstructor<TestObjectCpp>('TestObjectCpp')
-        const instance = new HybridTestObjectCpp()
-        return instance
+          getHybridObjectConstructor<TestObjectCpp>("TestObjectCpp");
+        const instance = new HybridTestObjectCpp();
+        return instance;
       })
         .didNotThrow()
-        .toContain('boolValue')
+        .toContain("boolValue"),
     ),
-    createTest('new T() instanceof works', () =>
+    createTest("new T() instanceof works", () =>
       it(() => {
         const HybridTestObjectCpp =
-          getHybridObjectConstructor<TestObjectCpp>('TestObjectCpp')
-        const instance = new HybridTestObjectCpp()
-        return instance instanceof HybridTestObjectCpp
+          getHybridObjectConstructor<TestObjectCpp>("TestObjectCpp");
+        const instance = new HybridTestObjectCpp();
+        return instance instanceof HybridTestObjectCpp;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('{} instanceof works', () =>
+    createTest("{} instanceof works", () =>
       it(() => {
         const HybridTestObjectCpp =
-          getHybridObjectConstructor<TestObjectCpp>('TestObjectCpp')
-        return {} instanceof HybridTestObjectCpp
+          getHybridObjectConstructor<TestObjectCpp>("TestObjectCpp");
+        return {} instanceof HybridTestObjectCpp;
       })
         .didNotThrow()
-        .equals(false)
+        .equals(false),
     ),
-    createTest('new T() =/= new T()', () =>
+    createTest("new T() =/= new T()", () =>
       it(() => {
         const HybridTestObjectCpp =
-          getHybridObjectConstructor<TestObjectCpp>('TestObjectCpp')
-        const a = new HybridTestObjectCpp()
-        const b = new HybridTestObjectCpp()
-        return a === b
+          getHybridObjectConstructor<TestObjectCpp>("TestObjectCpp");
+        const a = new HybridTestObjectCpp();
+        const b = new HybridTestObjectCpp();
+        return a === b;
       })
         .didNotThrow()
-        .equals(false)
+        .equals(false),
     ),
-    createTest('new T() a == a', () =>
+    createTest("new T() a == a", () =>
       it(() => {
         const HybridTestObjectCpp =
-          getHybridObjectConstructor<TestObjectCpp>('TestObjectCpp')
-        const a = new HybridTestObjectCpp()
+          getHybridObjectConstructor<TestObjectCpp>("TestObjectCpp");
+        const a = new HybridTestObjectCpp();
         // eslint-disable-next-line no-self-compare
-        return a === a
+        return a === a;
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('NitroModules.updateMemorySize(obj) works (roundtrip)', () =>
+    createTest("NitroModules.updateMemorySize(obj) works (roundtrip)", () =>
       it(() => {
-        NitroModules.updateMemorySize(testObject)
-      }).didNotThrow()
+        NitroModules.updateMemorySize(testObject);
+      }).didNotThrow(),
     ),
-    createTest('NitroModules.buildType holds a string', () =>
+    createTest("NitroModules.buildType holds a string", () =>
       it(() => {
-        return NitroModules.buildType
+        return NitroModules.buildType;
       })
         .didNotThrow()
-        .didReturn('string')
+        .didReturn("string"),
     ),
-    createTest('NitroModules.version holds a string', () =>
+    createTest("NitroModules.version holds a string", () =>
       it(() => {
-        return NitroModules.version
+        return NitroModules.version;
       })
         .didNotThrow()
-        .didReturn('string')
+        .didReturn("string"),
     ),
-    createTest('NitroModules.getAllHybridObjectNames() returns an array', () =>
+    createTest("NitroModules.getAllHybridObjectNames() returns an array", () =>
       it(() => {
-        return NitroModules.getAllHybridObjectNames()
+        return NitroModules.getAllHybridObjectNames();
       })
         .didNotThrow()
-        .toBeArray()
+        .toBeArray(),
     ),
-    createTest('NitroModules.box(testObject) returns an object', () =>
+    createTest("NitroModules.box(testObject) returns an object", () =>
       it(() => {
-        return NitroModules.box(testObject)
+        return NitroModules.box(testObject);
       })
         .didNotThrow()
-        .didReturn('object')
+        .didReturn("object"),
     ),
     createTest(
-      'NitroModules.box(testObject).unbox() returns the same object',
+      "NitroModules.box(testObject).unbox() returns the same object",
       () =>
         it(() => {
-          const boxed = NitroModules.box(testObject)
-          const original = boxed.unbox()
-          return original === testObject
+          const boxed = NitroModules.box(testObject);
+          const original = boxed.unbox();
+          return original === testObject;
         })
           .didNotThrow()
-          .equals(true)
+          .equals(true),
     ),
-    createTest('NitroModules.hasHybridObject(testObject.name) to be true', () =>
+    createTest("NitroModules.hasHybridObject(testObject.name) to be true", () =>
       it(() => {
-        return NitroModules.hasHybridObject(testObject.name)
+        return NitroModules.hasHybridObject(testObject.name);
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-    createTest('NitroModules.hasNativeState(testObject) to be true', () =>
+    createTest("NitroModules.hasNativeState(testObject) to be true", () =>
       it(() => {
-        return NitroModules.hasNativeState(testObject)
+        return NitroModules.hasNativeState(testObject);
       })
         .didNotThrow()
-        .equals(true)
+        .equals(true),
     ),
-  ]
+  ];
 }

@@ -37,6 +37,7 @@ public extension Error {
    */
   func toCpp() -> std.exception_ptr {
     let message = String(describing: self)
-    return margelo.nitro.makeException(std.string(message))
+    let m = margelo.nitro.makeException(std.string(message))
+      return m
   }
 }
