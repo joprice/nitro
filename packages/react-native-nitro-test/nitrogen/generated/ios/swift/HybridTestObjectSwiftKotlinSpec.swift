@@ -31,6 +31,7 @@ public protocol HybridTestObjectSwiftKotlinSpec_protocol: HybridObject {
   // Methods
   func newTestObject() throws -> (any HybridTestObjectSwiftKotlinSpec)
   func getVariantHybrid(variant: Variant__any_HybridTestObjectSwiftKotlinSpec__Person) throws -> Variant__any_HybridTestObjectSwiftKotlinSpec__Person
+  func subscribe(listener: @escaping () -> Void) throws -> EventHandle
   func simpleFunc() throws -> Void
   func addNumbers(a: Double, b: Double) throws -> Double
   func addStrings(a: String, b: String) throws -> String

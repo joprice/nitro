@@ -15,6 +15,8 @@ namespace margelo::nitro::test { enum class Powertrain; }
 namespace margelo::nitro::test { enum class OldEnum; }
 // Forward declaration of `Person` to properly resolve imports.
 namespace margelo::nitro::test { struct Person; }
+// Forward declaration of `EventHandle` to properly resolve imports.
+namespace margelo::nitro::test { struct EventHandle; }
 // Forward declaration of `PartialPerson` to properly resolve imports.
 namespace margelo::nitro::test { struct PartialPerson; }
 // Forward declaration of `HybridChildSpec` to properly resolve imports.
@@ -62,11 +64,13 @@ namespace margelo::nitro::test { class HybridTestViewSpec; }
 #include "Person.hpp"
 #include "JVariant_HybridTestObjectSwiftKotlinSpec_Person.hpp"
 #include "JPerson.hpp"
+#include "EventHandle.hpp"
+#include "JEventHandle.hpp"
+#include "JFunc_void.hpp"
 #include "PartialPerson.hpp"
 #include "JPartialPerson.hpp"
 #include "HybridChildSpec.hpp"
 #include "JHybridChildSpec.hpp"
-#include "JFunc_void.hpp"
 #include <NitroModules/AnyMap.hpp>
 #include <NitroModules/JAnyMap.hpp>
 #include <NitroModules/Promise.hpp>
@@ -316,6 +320,11 @@ namespace margelo::nitro::test {
   std::variant<std::shared_ptr<HybridTestObjectSwiftKotlinSpec>, Person> JHybridTestObjectSwiftKotlinSpec::getVariantHybrid(const std::variant<std::shared_ptr<HybridTestObjectSwiftKotlinSpec>, Person>& variant) {
     static const auto method = javaClassStatic()->getMethod<jni::local_ref<JVariant_HybridTestObjectSwiftKotlinSpec_Person>(jni::alias_ref<JVariant_HybridTestObjectSwiftKotlinSpec_Person> /* variant */)>("getVariantHybrid");
     auto __result = method(_javaPart, JVariant_HybridTestObjectSwiftKotlinSpec_Person::fromCpp(variant));
+    return __result->toCpp();
+  }
+  EventHandle JHybridTestObjectSwiftKotlinSpec::subscribe(const std::function<void()>& listener) {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JEventHandle>(jni::alias_ref<JFunc_void::javaobject> /* listener */)>("subscribe_cxx");
+    auto __result = method(_javaPart, JFunc_void_cxx::fromCpp(listener));
     return __result->toCpp();
   }
   void JHybridTestObjectSwiftKotlinSpec::simpleFunc() {

@@ -20,6 +20,8 @@ namespace margelo::nitro::test { enum class Powertrain; }
 namespace margelo::nitro::test { enum class OldEnum; }
 // Forward declaration of `Person` to properly resolve imports.
 namespace margelo::nitro::test { struct Person; }
+// Forward declaration of `EventHandle` to properly resolve imports.
+namespace margelo::nitro::test { struct EventHandle; }
 // Forward declaration of `PartialPerson` to properly resolve imports.
 namespace margelo::nitro::test { struct PartialPerson; }
 // Forward declaration of `Car` to properly resolve imports.
@@ -60,6 +62,7 @@ namespace margelo::nitro::test::external { class HybridSomeExternalObjectSpec; }
 #include "OldEnum.hpp"
 #include <functional>
 #include "Person.hpp"
+#include "EventHandle.hpp"
 #include "PartialPerson.hpp"
 #include "Car.hpp"
 #include "HybridChildSpec.hpp"
@@ -233,6 +236,14 @@ namespace margelo::nitro::test {
     }
     inline std::variant<std::shared_ptr<HybridTestObjectSwiftKotlinSpec>, Person> getVariantHybrid(const std::variant<std::shared_ptr<HybridTestObjectSwiftKotlinSpec>, Person>& variant) override {
       auto __result = _swiftPart.getVariantHybrid(variant);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline EventHandle subscribe(const std::function<void()>& listener) override {
+      auto __result = _swiftPart.subscribe(listener);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

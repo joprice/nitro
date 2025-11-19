@@ -152,6 +152,15 @@ abstract class HybridTestObjectSwiftKotlinSpec: HybridObject() {
   @Keep
   abstract fun getVariantHybrid(variant: Variant_HybridTestObjectSwiftKotlinSpec_Person): Variant_HybridTestObjectSwiftKotlinSpec_Person
   
+  abstract fun subscribe(listener: () -> Unit): EventHandle
+  
+  @DoNotStrip
+  @Keep
+  private fun subscribe_cxx(listener: Func_void): EventHandle {
+    val __result = subscribe(listener)
+    return __result
+  }
+  
   @DoNotStrip
   @Keep
   abstract fun simpleFunc(): Unit

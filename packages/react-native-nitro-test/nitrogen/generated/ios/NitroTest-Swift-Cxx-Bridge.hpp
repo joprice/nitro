@@ -12,6 +12,8 @@
 namespace NitroModules { class ArrayBufferHolder; }
 // Forward declaration of `Car` to properly resolve imports.
 namespace margelo::nitro::test { struct Car; }
+// Forward declaration of `EventHandle` to properly resolve imports.
+namespace margelo::nitro::test { struct EventHandle; }
 // Forward declaration of `HybridBaseSpec` to properly resolve imports.
 namespace margelo::nitro::test { class HybridBaseSpec; }
 // Forward declaration of `HybridChildSpec` to properly resolve imports.
@@ -59,6 +61,7 @@ namespace NitroTest { class HybridTestViewSpec_cxx; }
 
 // Include C++ defined types
 #include "Car.hpp"
+#include "EventHandle.hpp"
 #include "HybridBaseSpec.hpp"
 #include "HybridChildSpec.hpp"
 #include "HybridPlatformObjectSpec.hpp"
@@ -350,6 +353,28 @@ namespace margelo::nitro::test::bridge::swift {
     return std__variant_std__shared_ptr_HybridTestObjectSwiftKotlinSpec___Person_(value);
   }
   
+  // pragma MARK: std::function<void()>
+  /**
+   * Specialized version of `std::function<void()>`.
+   */
+  using Func_void = std::function<void()>;
+  /**
+   * Wrapper class for a `std::function<void()>`, this can be used from Swift.
+   */
+  class Func_void_Wrapper final {
+  public:
+    explicit Func_void_Wrapper(std::function<void()>&& func): _function(std::make_unique<std::function<void()>>(std::move(func))) {}
+    inline void call() const noexcept {
+      _function->operator()();
+    }
+  private:
+    std::unique_ptr<std::function<void()>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
+    return Func_void_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::variant<nitro::NullType, std::string>
   /**
    * Wrapper struct for `std::variant<nitro::NullType, std::string>`.
@@ -540,28 +565,6 @@ namespace margelo::nitro::test::bridge::swift {
     std::vector<std::shared_ptr<HybridChildSpec>> vector;
     vector.reserve(size);
     return vector;
-  }
-  
-  // pragma MARK: std::function<void()>
-  /**
-   * Specialized version of `std::function<void()>`.
-   */
-  using Func_void = std::function<void()>;
-  /**
-   * Wrapper class for a `std::function<void()>`, this can be used from Swift.
-   */
-  class Func_void_Wrapper final {
-  public:
-    explicit Func_void_Wrapper(std::function<void()>&& func): _function(std::make_unique<std::function<void()>>(std::move(func))) {}
-    inline void call() const noexcept {
-      _function->operator()();
-    }
-  private:
-    std::unique_ptr<std::function<void()>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
-    return Func_void_Wrapper(std::move(value));
   }
   
   // pragma MARK: std::vector<std::function<void()>>
@@ -1427,6 +1430,15 @@ namespace margelo::nitro::test::bridge::swift {
   }
   inline Result_std__variant_std__shared_ptr_HybridTestObjectSwiftKotlinSpec___Person__ create_Result_std__variant_std__shared_ptr_HybridTestObjectSwiftKotlinSpec___Person__(const std::exception_ptr& error) noexcept {
     return Result<std::variant<std::shared_ptr<HybridTestObjectSwiftKotlinSpec>, Person>>::withError(error);
+  }
+  
+  // pragma MARK: Result<EventHandle>
+  using Result_EventHandle_ = Result<EventHandle>;
+  inline Result_EventHandle_ create_Result_EventHandle_(const EventHandle& value) noexcept {
+    return Result<EventHandle>::withValue(value);
+  }
+  inline Result_EventHandle_ create_Result_EventHandle_(const std::exception_ptr& error) noexcept {
+    return Result<EventHandle>::withError(error);
   }
   
   // pragma MARK: Result<void>

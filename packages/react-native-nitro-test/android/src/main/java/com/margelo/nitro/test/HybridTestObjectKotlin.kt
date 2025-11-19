@@ -473,7 +473,11 @@ class HybridTestObjectKotlin : HybridTestObjectSwiftKotlinSpec() {
     return variant
   }
 
-  override fun getBufferLastItem(buffer: ArrayBuffer): Double {
+    override fun subscribe(listener: () -> Unit): EventHandle {
+        return EventHandle(listener)
+    }
+
+    override fun getBufferLastItem(buffer: ArrayBuffer): Double {
     val byteBuffer = buffer.getBuffer(false)
     val lastItem = byteBuffer[buffer.size - 1]
     return lastItem.toDouble()
